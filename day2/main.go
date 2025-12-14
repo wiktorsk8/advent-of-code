@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 func loadIds() [][]int {
@@ -81,13 +82,34 @@ func isMadeFromDuplicateSequence(id string) bool {
 func main() {
 	ids := loadIds()
 
-	addedUpIds := 0
+	resultsChan := make(chan int)
+	var wg sync.WaitGroup
+
 	for _, idRange := range ids {
-		invalidIdsInRange := detectInvalidIds(idRange[0], idRange[1])
-		for _, id := range invalidIdsInRange {
-			addedUpIds += id
-		}
+		wg.Add(1)
+
+		go func(start, end int) {
+			defer wg.Done()
+			partialSum := 0
+			invalidIds := detectInvalidIds(start, end)
+			for _, id := range invalidIds {
+				partialSum += id
+			}
+
+			resultsChan <- partialSum
+		}(idRange[0], idRange[1])
 	}
 
-	fmt.Printf("hello %d", addedUpIds)
+	go func() {
+		wg.Wait()
+		close(resultsChan)
+	}()
+
+	totalSum := 0
+
+	for sum := range resultsChan {
+		totalSum += sum
+	}
+
+	fmt.Printf("hello %d \n", totalSum)
 }
